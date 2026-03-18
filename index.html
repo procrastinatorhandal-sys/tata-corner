@@ -241,10 +241,8 @@
   </div>
 
   <script>
-    // ── JSONBin Config ──
-    const BIN_ID  = "69ba1b52aa77b81da9f495fc";
-    const API_KEY = "$2a$10$0XnIchPZoFt7JbhzbZp.suyhv4EYKaLevXOCqoitEPTA53DMLs5yW";
-    const BIN_URL = "https://api.jsonbin.io/v3/b/" + BIN_ID;
+    // ── localStorage ──
+    const STORAGE_KEY = "tata-corner-data";
     let saveTimer = null;
 
     function showSync(msg, color) {
@@ -252,27 +250,22 @@
       if (el) { el.textContent = msg; el.style.color = color || "#105666"; }
     }
 
-    async function loadCloud() {
+    function loadLocal() {
       try {
-        const res = await fetch(BIN_URL + "/latest", { headers: { "X-Master-Key": API_KEY } });
-        const data = await res.json();
-        return data.record || {};
-      } catch(e) { showSync("Gagal memuat data :(", "#D3968C"); return {}; }
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch(e) { return {}; }
     }
 
     function scheduleSave() {
       clearTimeout(saveTimer);
-      saveTimer = setTimeout(async () => {
-        showSync("Menyimpan...", "#105666");
+      saveTimer = setTimeout(() => {
         try {
-          await fetch(BIN_URL, {
-            method: "PUT",
-            headers: { "Content-Type": "application/json", "X-Master-Key": API_KEY },
-            body: JSON.stringify({ tasks, nextId, h30State, toItems: collectToItems() })
-          });
+          const data = { tasks, nextId, h30State, toItems: collectToItems() };
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
           showSync("✓ Tersimpan", "#839958");
         } catch(e) { showSync("Gagal menyimpan :(", "#D3968C"); }
-      }, 1200);
+      }, 500);
     }
 
     function collectToItems() {
@@ -619,16 +612,19 @@
     }
 
     // ── Boot ──
-    async function boot() {
+    function boot() {
       showSync("Memuat data...", "#105666");
-      updateTimer(); renderTasks(); buildH30(); h30Progress();
+      updateTimer(); buildH30(); h30Progress();
 
-      const cloud = await loadCloud();
+      const saved = loadLocal();
 
-      if (cloud.tasks)    { tasks=cloud.tasks; nextId=cloud.nextId||tasks.length+1; renderTasks(); }
-      if (cloud.h30State) { h30State=cloud.h30State; buildH30(); h30Progress(); }
-      if (cloud.toItems && cloud.toItems.length) {
-        cloud.toItems.forEach(item=>createToItem(item.name||"", item.overall||"", item.subs||[]));
+      if (saved.tasks && saved.tasks.length) { tasks=saved.tasks; nextId=saved.nextId||tasks.length+1; }
+      if (saved.h30State) { h30State=saved.h30State; buildH30(); h30Progress(); }
+
+      renderTasks();
+
+      if (saved.toItems && saved.toItems.length) {
+        saved.toItems.forEach(item=>createToItem(item.name||"", item.overall||"", item.subs||[]));
       } else {
         createToItem("Mock Test 1","",[]); createToItem("Mock Test 2","",[]); 
       }
